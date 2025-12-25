@@ -213,7 +213,7 @@ jobs:
 
             const totalComments = existingComments.data.length;
 
-            if (!alreadyCommented && totalComments < 10) {
+            if (!alreadyCommented && totalComments < 100) {
               // Post the comment
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
