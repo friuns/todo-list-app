@@ -1,5 +1,4 @@
-# This workflow deploys the to-do list application.
-# Re-triggering the workflow.
+# This workflow builds and deploys the to-do list application.
 name: Deploy To-Do App
 
 on:
@@ -14,12 +13,9 @@ permissions:
   id-token: write
 
 jobs:
-  build-and-deploy-todo-app:
+  # Build job runs on both push and pull_request
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -41,6 +37,15 @@ jobs:
       with:
         path: './dist'
 
+  # Deploy job only runs on push to main
+  deploy:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
     - name: Deploy to GitHub Pages
       id: deployment
       uses: actions/deploy-pages@v4
