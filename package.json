@@ -1,0 +1,11 @@
+{
+  "name": "todo-app",
+  "version": "1.0.0",
+  "description": "A simple to-do list application.",
+  "main": "public/script.js",
+  "scripts": {
+    "build": "mkdir -p dist && cp -r public/* dist/"
+  },
+  "author": "Jules",
+  "license": "ISC"
+}
