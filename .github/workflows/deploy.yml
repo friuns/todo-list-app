@@ -15,7 +15,6 @@ permissions:
 
 jobs:
   build-and-deploy-todo-app:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
