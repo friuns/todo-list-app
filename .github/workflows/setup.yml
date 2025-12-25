@@ -1,0 +1,249 @@
+name: Setup Repository
+# This workflow automates repository setup by:
+# - Optionally cloning a template repository
+# - Copying all workflows from the reference repository (friuns/VibeGithub)
+# - Configuring GitHub Pages with GitHub Actions as the build source
+# - Setting the repository website URL to the GitHub Pages URL
+# - Committing and pushing all changes
+
+on:
+  workflow_dispatch:
+    inputs:
+      template_repo:
+        description: 'Template repository to clone (e.g., owner/repo). Leave empty to skip.'
+        required: false
+        default: ''
+      app_description:
+        description: 'Description of the application (optional). Used for documentation and setup guidance.'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+  issues: write
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.OAUTH_TOKEN || github.token }}
+          fetch-depth: 0
+
+      - name: Clone template repository
+        if: ${{ github.event.inputs.template_repo != '' }}
+        run: |
+          echo "📦 Cloning template repository: ${{ github.event.inputs.template_repo }}..."
+          
+          cd ..
+          git clone --depth 1 https://github.com/${{ github.event.inputs.template_repo }}.git temp-clone
+          
+          cd ${{ github.event.repository.name }}
+          
+          # Remove existing files except .git
+          find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
+          
+          # Copy all files from template (excluding .git)
+          rsync -av --exclude='.git' ../temp-clone/ .
+          
+          echo "✅ Template cloned successfully!"
+
+      - name: Copy workflows from reference repository
+        env:
+          GH_TOKEN: ${{ secrets.OAUTH_TOKEN || github.token }}
+          REFERENCE_REPO: friuns/VibeGithub
+        run: |
+          echo "📥 Copying workflows from $REFERENCE_REPO..."
+          
+          # Create workflows directory if it doesn't exist
+          mkdir -p .github/workflows
+          
+          # Get list of workflow files from reference repository
+          WORKFLOWS=$(gh api repos/$REFERENCE_REPO/contents/.github/workflows \
+            --jq '.[] | select(.name | endswith(".yml") or endswith(".yaml")) | select(.name != "setup.yml") | .name')
+          
+          echo "Found workflows:"
+          echo "$WORKFLOWS"
+          
+          # Copy each workflow file
+          for workflow in $WORKFLOWS; do
+            echo "Copying $workflow..."
+            gh api repos/$REFERENCE_REPO/contents/.github/workflows/$workflow \
+              --jq '.content' | base64 -d > .github/workflows/$workflow
+          done
+          
+          echo "✅ Workflows copied successfully!"
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit and push all changes
+        run: |
+          git add -A
+          
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            COMMIT_MSG="Setup repository"
+            
+            if [ "${{ github.event.inputs.template_repo }}" != "" ]; then
+              COMMIT_MSG="$COMMIT_MSG from template: ${{ github.event.inputs.template_repo }}"
+            fi
+            
+            git commit -m "$COMMIT_MSG"
+            git push origin ${{ github.ref_name }} --force
+            echo "✅ Changes committed and pushed!"
+          fi
+
+      - name: Enable GitHub Pages
+        env:
+          GH_TOKEN: ${{ secrets.OAUTH_TOKEN || github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo "📄 Configuring GitHub Pages..."
+          
+          # Try to create Pages with GitHub Actions as the source
+          RESPONSE=$(gh api -X POST repos/$REPO/pages \
+            -f build_type=workflow \
+            2>&1 || echo "CREATE_FAILED")
+          
+          if [[ "$RESPONSE" == *"CREATE_FAILED"* ]] || [[ "$RESPONSE" == *"already exists"* ]]; then
+            echo "Pages may already exist, attempting to update..."
+            gh api -X PUT repos/$REPO/pages \
+              -f build_type=workflow \
+              2>&1 || echo "⚠️ Could not update Pages (may need manual configuration)"
+          fi
+          
+          echo "✅ GitHub Pages configured with GitHub Actions as the source!"
+
+      - name: Set repository website to GitHub Pages URL
+        env:
+          GH_TOKEN: ${{ secrets.OAUTH_TOKEN || github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo "🌐 Setting repository website URL..."
+          
+          # Extract owner and repo name
+          OWNER=$(echo $REPO | cut -d'/' -f1)
+          REPO_NAME=$(echo $REPO | cut -d'/' -f2)
+          
+          # Construct GitHub Pages URL
+          PAGES_URL="https://${OWNER}.github.io/${REPO_NAME}"
+          
+          # Update repository with homepage URL
+          gh api -X PATCH repos/$REPO \
+            -f homepage="$PAGES_URL" \
+            2>&1 || echo "⚠️ Could not set homepage URL"
+          
+          echo "✅ Repository website set to: $PAGES_URL"
+
+      - name: Create deployment configuration issue
+        if: ${{ github.event.inputs.template_repo != '' || github.event.inputs.app_description != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.OAUTH_TOKEN || github.token }}
+          REPO: ${{ github.repository }}
+          APP_DESCRIPTION: ${{ github.event.inputs.app_description }}
+        run: |
+          echo "📝 Creating deployment configuration issue..."
+
+          # Create JSON payload for the issue
+          cat > /tmp/issue_payload.json << JSON_EOF
+          {
+            "title": "🚀 Create app",
+            "labels": ["jules"],
+            "body": "APP_DESCRIPTION_PLACEHOLDER\n\ncreate $APP_DESCRIPTION then update deploy.yml to deploy the app"
+          }
+          JSON_EOF
+
+          # Replace placeholders
+          if [ -n "$APP_DESCRIPTION" ]; then
+            # Escape the description for JSON
+            ESCAPED_DESC=$(echo "$APP_DESCRIPTION" | jq -Rs .)
+            sed -i "s|APP_DESCRIPTION_PLACEHOLDER|### 📝 Application Description\n\n$APP_DESCRIPTION\n|g" /tmp/issue_payload.json
+          else
+            sed -i 's|APP_DESCRIPTION_PLACEHOLDER||g' /tmp/issue_payload.json
+          fi
+
+          # Create issue using GitHub API and capture response
+          RESPONSE=$(curl -X POST \
+            -H "Authorization: token $GH_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Content-Type: application/json" \
+            "https://api.github.com/repos/$REPO/issues" \
+            -d @/tmp/issue_payload.json \
+            2>/dev/null)
+
+          # Extract issue number from response
+          ISSUE_NUMBER=$(echo "$RESPONSE" | jq -r '.number // empty')
+
+          if [ -n "$ISSUE_NUMBER" ]; then
+            echo "Issue created with number: $ISSUE_NUMBER"
+
+            # Assign copilot-swe-agent[bot] to the issue
+            curl -X PATCH \
+              -H "Authorization: token $GH_TOKEN" \
+              -H "Accept: application/vnd.github.v3+json" \
+              -H "Content-Type: application/json" \
+              "https://api.github.com/repos/$REPO/issues/$ISSUE_NUMBER" \
+              -d '{"assignees": ["copilot-swe-agent[bot]"]}' \
+              2>/dev/null || echo "⚠️ Could not assign copilot-swe-agent[bot] to issue"
+
+            echo "✅ Assigned copilot-swe-agent[bot] to issue #$ISSUE_NUMBER"
+          else
+            echo "⚠️ Could not create issue (may already exist or insufficient permissions)"
+          fi
+
+          rm -f /tmp/issue_payload.json
+          echo "✅ Deployment configuration issue created!"
+
+      - name: Setup Summary
+        run: |
+          echo "## 🎉 Repository Setup Complete!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ✅ Completed Steps:" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ github.event.inputs.template_repo }}" != "" ]; then
+            echo "- Cloned template: ${{ github.event.inputs.template_repo }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "- Copied workflows from friuns/VibeGithub" >> $GITHUB_STEP_SUMMARY
+          echo "- Configured GitHub Pages with GitHub Actions" >> $GITHUB_STEP_SUMMARY
+          echo "- Set repository website to GitHub Pages URL" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ github.event.inputs.template_repo }}" != "" ] || [ "${{ github.event.inputs.app_description }}" != "" ]; then
+            echo "- Created deployment configuration issue" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ github.event.inputs.app_description }}" != "" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 📝 Application Description:" >> $GITHUB_STEP_SUMMARY
+            echo "${{ github.event.inputs.app_description }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📋 Workflows Installed:" >> $GITHUB_STEP_SUMMARY
+          ls -1 .github/workflows/ | grep -v setup.yml | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY || echo "- None" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔗 Quick Links:" >> $GITHUB_STEP_SUMMARY
+          
+          # Extract owner and repo for Pages URL
+          OWNER=$(echo "${{ github.repository }}" | cut -d'/' -f1)
+          REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+          PAGES_URL="https://${OWNER}.github.io/${REPO_NAME}"
+          
+          echo "- [GitHub Pages Site]($PAGES_URL)" >> $GITHUB_STEP_SUMMARY
+          echo "- [GitHub Pages Settings](https://github.com/${{ github.repository }}/settings/pages)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Actions](https://github.com/${{ github.repository }}/actions)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Workflows](https://github.com/${{ github.repository }}/tree/main/.github/workflows)" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ github.event.inputs.template_repo }}" != "" ] || [ "${{ github.event.inputs.app_description }}" != "" ]; then
+            echo "- [Issues](https://github.com/${{ github.repository }}/issues)" >> $GITHUB_STEP_SUMMARY
+          fi
+
