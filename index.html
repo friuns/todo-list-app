@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Todo List with Feedback</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>📝 Todo List</h1>
+        
+        <!-- Todo List Section -->
+        <div class="todo-section">
+            <div class="input-group">
+                <input type="text" id="todoInput" placeholder="Add a new task...">
+                <button id="addBtn">Add</button>
+            </div>
+            <ul id="todoList"></ul>
+        </div>
+
+        <!-- User Feedback Section -->
+        <div class="feedback-section">
+            <h2>💬 We'd love your feedback!</h2>
+            <form id="feedbackForm">
+                <div class="form-group">
+                    <label for="feedbackText">Your feedback:</label>
+                    <textarea id="feedbackText" placeholder="Tell us what you think..." rows="4"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Rate your experience:</label>
+                    <div class="rating">
+                        <span class="star" data-rating="1">⭐</span>
+                        <span class="star" data-rating="2">⭐</span>
+                        <span class="star" data-rating="3">⭐</span>
+                        <span class="star" data-rating="4">⭐</span>
+                        <span class="star" data-rating="5">⭐</span>
+                    </div>
+                    <input type="hidden" id="rating" value="0">
+                </div>
+                <button type="submit">Submit Feedback</button>
+            </form>
+            <div id="feedbackMessage" class="feedback-message"></div>
+        </div>
+
+        <!-- Display Submitted Feedback -->
+        <div class="feedback-display">
+            <h3>📊 Recent Feedback</h3>
+            <div id="feedbackList"></div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
