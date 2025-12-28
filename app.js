@@ -1,7 +1,22 @@
 // Todo List functionality
-let todos = JSON.parse(localStorage.getItem('todos')) || [];
-let feedbacks = JSON.parse(localStorage.getItem('feedbacks')) || [];
+let todos = [];
+let feedbacks = [];
 let selectedRating = 0;
+
+// Safe JSON parsing with error handling
+function safeParseJSON(key, defaultValue = []) {
+    try {
+        const item = localStorage.getItem(key);
+        return item ? JSON.parse(item) : defaultValue;
+    } catch (error) {
+        console.error(`Error parsing ${key} from localStorage:`, error);
+        return defaultValue;
+    }
+}
+
+// Initialize data from localStorage
+todos = safeParseJSON('todos', []);
+feedbacks = safeParseJSON('feedbacks', []);
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
@@ -38,7 +53,7 @@ function addTodo() {
     if (text === '') return;
     
     const todo = {
-        id: Date.now(),
+        id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
         text: text,
         completed: false
     };
@@ -78,9 +93,9 @@ function renderTodos() {
     todoList.innerHTML = todos.map(todo => `
         <li class="todo-item ${todo.completed ? 'completed' : ''}">
             <input type="checkbox" ${todo.completed ? 'checked' : ''} 
-                   onchange="toggleTodo(${todo.id})">
+                   onchange="toggleTodo('${todo.id}')">
             <span>${escapeHtml(todo.text)}</span>
-            <button class="delete-btn" onclick="deleteTodo(${todo.id})">Delete</button>
+            <button class="delete-btn" onclick="deleteTodo('${todo.id}')">Delete</button>
         </li>
     `).join('');
 }
@@ -118,7 +133,7 @@ function submitFeedback(e) {
     
     // Create feedback object
     const feedback = {
-        id: Date.now(),
+        id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
         text: feedbackText,
         rating: rating,
         date: new Date().toISOString()
