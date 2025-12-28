@@ -39,9 +39,16 @@ class TodoAdapter(
             holder.taskText.paintFlags = holder.taskText.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG.inv()
         }
         
+        // Remove previous listener to prevent issues
+        holder.checkBox.setOnCheckedChangeListener(null)
         holder.checkBox.setOnCheckedChangeListener { _, isChecked ->
             todo.isCompleted = isChecked
-            notifyItemChanged(position)
+            // Apply strikethrough immediately
+            if (isChecked) {
+                holder.taskText.paintFlags = holder.taskText.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
+            } else {
+                holder.taskText.paintFlags = holder.taskText.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG.inv()
+            }
         }
         
         holder.deleteButton.setOnClickListener {
