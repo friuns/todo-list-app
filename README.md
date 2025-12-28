@@ -87,7 +87,6 @@ app/
 - **Material Design Components** - UI components
 - **RecyclerView** - Efficient list display
 - **ConstraintLayout** - Flexible layouts
-- **ViewBinding** - Type-safe view access
 
 ## How It Works
 
