@@ -13,30 +13,48 @@ A simple and elegant Todo List application for Android.
 
 ## Requirements
 
-- Android Studio Arctic Fox or later
+- Android Studio Arctic Fox or later (recommended)
 - Android SDK 24 or higher (Android 7.0)
 - Java 17
-- Gradle 8.1.0
+- Gradle 7.4+
 
 ## Building the Project
 
-### Using Android Studio
+### Using Android Studio (Recommended)
 
 1. Open Android Studio
 2. Select "Open an Existing Project"
 3. Navigate to the project directory and select it
-4. Wait for Gradle to sync
-5. Click "Run" button or press Shift+F10
+4. Wait for Gradle to sync and download dependencies
+5. Click "Run" button or press Shift+F10 to build and run
 
-### Using Command Line
+Android Studio will automatically:
+- Download the required Android SDK components
+- Download all dependencies
+- Set up the Gradle wrapper
+- Build the APK
 
-1. Navigate to the project directory
-2. Build the project:
+### Using Command Line (Requires Android SDK)
+
+If you have Android SDK installed and configured:
+
+1. Set ANDROID_HOME environment variable:
+   ```bash
+   export ANDROID_HOME=/path/to/android-sdk
+   ```
+
+2. Navigate to the project directory
+3. Generate wrapper (first time only):
+   ```bash
+   gradle wrapper
+   ```
+
+4. Build the project:
    ```bash
    ./gradlew build
    ```
 
-3. Install on connected device/emulator:
+5. Install on connected device/emulator:
    ```bash
    ./gradlew installDebug
    ```
@@ -71,6 +89,21 @@ app/
 - **ConstraintLayout** - Flexible layouts
 - **ViewBinding** - Type-safe view access
 
+## How It Works
+
+The app uses a simple architecture:
+
+1. **MainActivity** - Handles user input and manages the todo list
+2. **TodoAdapter** - Connects the data to the RecyclerView
+3. **TodoItem** - Data class representing a single todo item
+
+Users can:
+- Type a task in the input field and click "Add Task" or press Enter
+- Check/uncheck tasks to mark them as complete/incomplete
+- Delete tasks using the delete button on each item
+- See an empty state message when there are no tasks
+
 ## License
 
 This project is open source and available under the MIT License.
+
