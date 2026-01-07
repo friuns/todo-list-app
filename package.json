@@ -1,0 +1,17 @@
+{
+  "name": "todo-list-app",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "keywords": ["todo", "list", "app"],
+  "author": "",
+  "license": "ISC",
+  "description": "A simple todo list application",
+  "devDependencies": {
+    "vite": "^7.3.0"
+  }
+}
